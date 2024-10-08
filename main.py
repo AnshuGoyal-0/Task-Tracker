@@ -17,11 +17,17 @@ class TaskManager:
             try:
                 with open('tasks.json', 'r') as f:
                     tasks_data = json.load(f)
-                    self.tasks = [Task(**task) for task in tasks_data]
+                    # Ensure data is a list of dictionaries
+                    if isinstance(tasks_data, list):
+                        self.tasks = [Task(**task) for task in tasks_data if isinstance(task, dict)]
+                    else:
+                        print("JSON data is not in the expected format. Initializing with an empty task list.")
+                        self.tasks = []
             except json.JSONDecodeError:
-                print("Error decoding JSON, initializing with an empty task list.")
+                print("Error decoding JSON. Initializing with an empty task list.")
                 self.tasks = []
         else:
+            print("No task file found. Initializing with an empty task list.")
             self.tasks = []
 
     def save_tasks(self):
