@@ -1,132 +1,119 @@
-import argparse
-import json
 import os
+import json
 
-# The name of the JSON file to store tasks
-TASK_FILE = 'tasks.json'
+class Task:
+    def __init__(self, title, description, status):
+        self.title = title
+        self.description = description
+        self.status = status
 
-# Function to load tasks from the JSON file, or initialize if the file doesn't exist
-def load_tasks():
-    if os.path.exists(TASK_FILE):
-        with open(TASK_FILE, 'r') as file:
+class TaskManager:
+    def __init__(self):
+        self.tasks = []
+        self.load_tasks()
+
+    def load_tasks(self):
+        if os.path.exists('tasks.json'):
             try:
-                return json.load(file)
+                with open('tasks.json', 'r') as f:
+                    tasks_data = json.load(f)
+                    self.tasks = [Task(**task) for task in tasks_data]
             except json.JSONDecodeError:
-                return {}
-    return {}
-
-# Function to save tasks to the JSON file
-def save_tasks(tasks):
-    with open(TASK_FILE, 'w') as file:
-        json.dump(tasks, file, indent=4)
-
-# Add a new task to the tasks dictionary
-def add_task(task_name):
-    tasks = load_tasks()
-    position = len(tasks)  # Automatically assign position based on number of tasks
-    tasks[position] = {'task': task_name, 'status': 'not done'}
-    save_tasks(tasks)
-    print(f"Task added: {task_name} at position {position}")
-
-# Update an existing task at a specific position
-def update_task(pos, new_task_name):
-    tasks = load_tasks()
-    if str(pos) in tasks:
-        tasks[str(pos)]['task'] = new_task_name
-        save_tasks(tasks)
-        print(f"Task at position {pos} updated to: {new_task_name}")
-    else:
-        print(f"No task found at position {pos}")
-
-# Delete a task by position
-def delete_task(pos):
-    tasks = load_tasks()
-    if str(pos) in tasks:
-        removed_task = tasks.pop(str(pos))
-        save_tasks(tasks)
-        print(f"Task deleted: {removed_task['task']} from position {pos}")
-    else:
-        print(f"No task found at position {pos}")
-
-# Mark a task as 'in progress', 'done', or 'not done'
-def mark_task_status(pos, status):
-    if status not in ['not done', 'in progress', 'done']:
-        print("Invalid status. Use 'not done', 'in progress', or 'done'.")
-        return
-    tasks = load_tasks()
-    if str(pos) in tasks:
-        tasks[str(pos)]['status'] = status
-        save_tasks(tasks)
-        print(f"Task at position {pos} marked as '{status}'")
-    else:
-        print(f"No task found at position {pos}")
-
-# List all tasks
-def list_all_tasks():
-    tasks = load_tasks()
-    if tasks:
-        print("All Tasks:")
-        for pos, details in tasks.items():
-            print(f"Position {pos}: {details['task']} (Status: {details['status']})")
-    else:
-        print("No tasks found.")
-
-# List tasks by a specific status
-def list_tasks_by_status(status):
-    tasks = load_tasks()
-    if tasks:
-        print(f"Tasks with status '{status}':")
-        for pos, details in tasks.items():
-            if details['status'] == status:
-                print(f"Position {pos}: {details['task']}")
-    else:
-        print("No tasks found.")
-
-# Main function to parse command-line arguments and call the appropriate functions
-def main():
-    parser = argparse.ArgumentParser(description="Task Manager")
-    parser.add_argument("command", choices=['add', 'update', 'delete', 'mark', 'list', 'list_done', 'list_not_done', 'list_in_progress'], help="Command to execute")
-    parser.add_argument("--task", help="Task description")
-    parser.add_argument("--pos", type=int, help="Position of the task")
-    parser.add_argument("--status", choices=['not done', 'in progress', 'done'], help="Task status")
-
-    args = parser.parse_args()
-
-    if args.command == 'add':
-        if args.task:
-            add_task(args.task)
+                print("Error decoding JSON, initializing with an empty task list.")
+                self.tasks = []
         else:
-            print("Please provide a task name using --task")
+            self.tasks = []
 
-    elif args.command == 'update':
-        if args.pos is not None and args.task:
-            update_task(args.pos, args.task)
+    def save_tasks(self):
+        with open('tasks.json', 'w') as f:
+            json.dump([task.__dict__ for task in self.tasks], f, indent=4)
+
+    def add_task(self, title, description, status):
+        task = Task(title, description, status)
+        self.tasks.append(task)
+        self.save_tasks()
+
+    def update_task(self, task_id, title=None, description=None, status=None):
+        if 0 <= task_id < len(self.tasks):
+            if title:
+                self.tasks[task_id].title = title
+            if description:
+                self.tasks[task_id].description = description
+            if status in ['not done', 'in progress', 'done']:
+                self.tasks[task_id].status = status
+            self.save_tasks()
         else:
-            print("Please provide both position (--pos) and task name (--task)")
+            print("Invalid task ID.")
 
-    elif args.command == 'delete':
-        if args.pos is not None:
-            delete_task(args.pos)
+    def delete_task(self, task_id):
+        if 0 <= task_id < len(self.tasks):
+            del self.tasks[task_id]
+            self.save_tasks()
         else:
-            print("Please provide the position of the task to delete using --pos")
+            print("Invalid task ID.")
 
-    elif args.command == 'mark':
-        if args.pos is not None and args.status:
-            mark_task_status(args.pos, args.status)
-        else:
-            print("Please provide both position (--pos) and status (--status)")
+    def list_tasks(self):
+        for i, task in enumerate(self.tasks):
+            print(f"{i}: Title: {task.title}, Description: {task.description}, Status: {task.status}")
 
-    elif args.command == 'list':
-        list_all_tasks()
+    def filter_tasks(self, status):
+        filtered = [task for task in self.tasks if task.status == status]
+        for i, task in enumerate(filtered):
+            print(f"{i}: Title: {task.title}, Description: {task.description}, Status: {task.status}")
 
-    elif args.command == 'list_done':
-        list_tasks_by_status('done')
+    def search_tasks(self, keyword):
+        results = [task for task in self.tasks if keyword.lower() in task.title.lower() or keyword.lower() in task.description.lower()]
+        for i, task in enumerate(results):
+            print(f"{i}: Title: {task.title}, Description: {task.description}, Status: {task.status}")
 
-    elif args.command == 'list_not_done':
-        list_tasks_by_status('not done')
-
-    elif args.command == 'list_in_progress':
-        list_tasks_by_status('in progress')
-
+# Command-line interface
 if __name__ == "__main__":
-    main()
+    task_manager = TaskManager()
+
+    while True:
+        print("\nOptions:")
+        print("1. Add Task")
+        print("2. Update Task")
+        print("3. Delete Task")
+        print("4. List All Tasks")
+        print("5. Filter Tasks")
+        print("6. Search Tasks")
+        print("7. Exit")
+
+        choice = input("Select an option: ")
+
+        if choice == '1':
+            title = input("Enter task title: ")
+            description = input("Enter task description: ")
+            status = input("Enter task status (not done/in progress/done): ")
+            if status not in ['not done', 'in progress', 'done']:
+                print("Invalid status. Use 'not done', 'in progress', or 'done'.")
+                continue
+            task_manager.add_task(title, description, status)
+        elif choice == '2':
+            task_id = int(input("Enter task ID to update: "))
+            title = input("Enter new task title (leave blank for no change): ")
+            description = input("Enter new task description (leave blank for no change): ")
+            status = input("Enter new task status (not done/in progress/done, leave blank for no change): ")
+            if status not in ['not done', 'in progress', 'done', '']:
+                print("Invalid status. Use 'not done', 'in progress', or 'done'.")
+                continue
+            task_manager.update_task(task_id, title if title else None, description if description else None, status if status else None)
+        elif choice == '3':
+            task_id = int(input("Enter task ID to delete: "))
+            task_manager.delete_task(task_id)
+        elif choice == '4':
+            task_manager.list_tasks()
+        elif choice == '5':
+            status = input("Enter status to filter (not done/in progress/done): ")
+            if status in ['not done', 'in progress', 'done']:
+                task_manager.filter_tasks(status)
+            else:
+                print("Invalid status.")
+        elif choice == '6':
+            keyword = input("Enter keyword to search for: ")
+            task_manager.search_tasks(keyword)
+        elif choice == '7':
+            break
+        else:
+            print("Invalid option. Please try again.")
